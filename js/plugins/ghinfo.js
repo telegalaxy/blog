@@ -1,1 +1,85 @@
-const GitHubInfo={requestAPI:(t,e,n)=>{let o=5;!function i(){return new Promise(((l,u)=>{let s=0,r=setTimeout((()=>{0===s&&(s=2,r=null,u("请求超时"),0==o&&n())}),5e3);fetch(t).then((function(t){if(2!==s&&(clearTimeout(r),l(t),r=null,s=1),t.ok)return t.json();throw new Error("Network response was not ok.")})).then((function(t){o=0,e(t)})).catch((function(t){o>0?(o-=1,setTimeout((()=>{i()}),5e3)):n()}))}))}()},layout:t=>{const e=$(t.el)[0];function n(t){for(let n of Object.keys(t))$(e).find("[type=text]#"+n).text(t[n]),$(e).find("[type=link]#"+n).attr("href",t[n]),$(e).find("[type=img]#"+n).attr("src",t[n])}GitHubInfo.requestAPI(t.api,(function(t){const o=e.getAttribute("index");if(null!=o){const e=t.content||t;if(e&&e.length>o){let t=e[o];t["latest-tag-name"]=t.name,n(e[o])}}else n(t)}),(function(){}))}};$((function(){const t=document.getElementsByClassName("stellar-ghinfo-api");for(var e=0;e<t.length;e++){const o=t[e],i=o.getAttribute("api");if(null!=i){var n=new Object;n.el=o,n.api=i,n.class=o.getAttribute("class"),GitHubInfo.layout(n)}}}));
+const GitHubInfo = {
+  requestAPI: (url, callback, timeout) => {
+    let retryTimes = 5;
+    function request() {
+      return new Promise((resolve, reject) => {
+        let status = 0; // 0 等待 1 完成 2 超时
+        let timer = setTimeout(() => {
+          if (status === 0) {
+            status = 2;
+            timer = null;
+            reject('请求超时');
+            if (retryTimes == 0) {
+              timeout();
+            }
+          }
+        }, 5000);
+        fetch(url).then(function(response) {
+          if (status !== 2) {
+            clearTimeout(timer);
+            resolve(response);
+            timer = null;
+            status = 1;
+          }
+          if (response.ok) {
+            return response.json();
+          }
+          throw new Error('Network response was not ok.');
+        }).then(function(data) {
+          retryTimes = 0;
+          callback(data);
+        }).catch(function(error) {
+          if (retryTimes > 0) {
+            retryTimes -= 1;
+            setTimeout(() => {
+              request();
+            }, 5000);
+          } else {
+            timeout();
+          }
+        });
+      });
+    }
+    request();
+  },
+  layout: (cfg) => {
+    const el = $(cfg.el)[0];
+    function fill(data) {
+      for (let key of Object.keys(data)) {
+        $(el).find("[type=text]#" + key).text(data[key]);
+        $(el).find("[type=link]#" + key).attr("href", data[key]);
+        $(el).find("[type=img]#" + key).attr("src", data[key]);
+      }
+    }
+    GitHubInfo.requestAPI(cfg.api, function(data) {
+      const idx = el.getAttribute('index');
+      if (idx != undefined) {
+        const arr = data.content || data;
+        if (arr && arr.length > idx) {
+          let obj = arr[idx];
+          obj['latest-tag-name'] = obj['name'];
+          fill(arr[idx]);
+        }
+      } else {
+        fill(data);
+      }
+    }, function() {
+    });
+  },
+}
+
+$(function () {
+  const els = document.getElementsByClassName('stellar-ghinfo-api');
+  for (var i = 0; i < els.length; i++) {
+    const el = els[i];
+    const api = el.getAttribute('api');
+    if (api == null) {
+      continue;
+    }
+    var cfg = new Object();
+    cfg.el = el;
+    cfg.api = api;
+    cfg.class = el.getAttribute('class');
+    GitHubInfo.layout(cfg);
+  }
+});
